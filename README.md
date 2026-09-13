@@ -8,8 +8,8 @@
 Clients use a browser or the future native Dara Parts client and connect to the same HTTP API. The database stays on whichever device is selected as the server.
 
 ## Default test accounts
-- admin / DaraAdmin123!
-- user / DaraUser123!
+- admin /
+- user /
 
 Change these before real use.
 
