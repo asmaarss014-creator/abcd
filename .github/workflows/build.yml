@@ -1,44 +1,131 @@
 name: Build Dara Parts
+
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
 jobs:
   windows:
     runs-on: windows-2022
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
       - name: Install PyInstaller
-        run: python -m pip install --upgrade pyinstaller
-      - name: Build Windows EXE
-        run: pyinstaller --noconfirm --clean --onefile --name DaraPartsServer server/server.py
-      - name: Assemble Windows package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+
+      - name: Build Windows Server EXE
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --name DaraPartsServer `
+            server/server.py
+
+      - name: Assemble Windows Package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path package\DaraParts | Out-Null
-          Copy-Item dist\DaraPartsServer.exe package\DaraParts\DaraPartsServer.exe
-          Copy-Item web package\DaraParts\web -Recurse
-          Copy-Item assets package\DaraParts\assets -Recurse
-          Copy-Item data package\DaraParts\data -Recurse
-          Copy-Item README.md package\DaraParts\README.md
-          Copy-Item run-pc.bat package\DaraParts\run-pc.bat
-      - name: Create ZIP
+          $root = "package\DaraParts"
+
+          New-Item -ItemType Directory -Force -Path "$root" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$root\assets" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$root\data" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$root\reports" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$root\web" | Out-Null
+
+          Copy-Item "dist\DaraPartsServer.exe" "$root\DaraPartsServer.exe"
+
+          if (Test-Path "web") {
+            Copy-Item "web\*" "$root\web\" -Recurse -Force
+          }
+
+          if (Test-Path "assets") {
+            Copy-Item "assets\*" "$root\assets\" -Recurse -Force
+          }
+
+          if (Test-Path "data") {
+            Copy-Item "data\*" "$root\data\" -Recurse -Force
+          }
+
+          if (Test-Path "reports") {
+            Copy-Item "reports\*" "$root\reports\" -Recurse -Force
+          }
+
+          if (Test-Path "README.md") {
+            Copy-Item "README.md" "$root\README.md"
+          }
+
+          if (Test-Path "run-pc.bat") {
+            Copy-Item "run-pc.bat" "$root\run-pc.bat"
+          }
+
+          @"
+          @echo off
+          cd /d "%~dp0"
+          start "" "DaraPartsServer.exe"
+          "@ | Set-Content "$root\Start-DaraParts.bat"
+
+          Write-Host "Final package:"
+          Get-ChildItem $root -Recurse
+
+      - name: Create Windows ZIP
         shell: pwsh
-        run: Compress-Archive -Path package\DaraParts -DestinationPath DaraParts-Windows-Server.zip
-      - uses: actions/upload-artifact@v4
+        run: |
+          Compress-Archive `
+            -Path "package\DaraParts" `
+            -DestinationPath "DaraParts-Windows-Server.zip" `
+            -Force
+
+      - name: Upload Windows Package
+        uses: actions/upload-artifact@v4
         with:
           name: DaraParts-Windows-Server
           path: DaraParts-Windows-Server.zip
-  phone-bundle:
+
+  phone:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Create phone ZIP
-        run: zip -r DaraParts-Phone-Server.zip server web assets data README.md
-      - uses: actions/upload-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Phone Server Package
+        run: |
+          mkdir -p phone-package
+
+          cp -r server phone-package/server
+          cp -r web phone-package/web
+
+          if [ -d assets ]; then
+            cp -r assets phone-package/assets
+          else
+            mkdir -p phone-package/assets
+          fi
+
+          if [ -d data ]; then
+            cp -r data phone-package/data
+          else
+            mkdir -p phone-package/data
+          fi
+
+          cp README.md phone-package/README.md
+
+          cd phone-package
+          zip -r ../DaraParts-Phone-Server.zip .
+
+      - name: Upload Phone Package
+        uses: actions/upload-artifact@v4
         with:
           name: DaraParts-Phone-Server
           path: DaraParts-Phone-Server.zip
