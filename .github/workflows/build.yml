@@ -1,0 +1,44 @@
+name: Build Dara Parts
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pyinstaller
+      - name: Build Windows EXE
+        run: pyinstaller --noconfirm --clean --onefile --name DaraPartsServer server/server.py
+      - name: Assemble Windows package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package\DaraParts | Out-Null
+          Copy-Item dist\DaraPartsServer.exe package\DaraParts\DaraPartsServer.exe
+          Copy-Item web package\DaraParts\web -Recurse
+          Copy-Item assets package\DaraParts\assets -Recurse
+          Copy-Item data package\DaraParts\data -Recurse
+          Copy-Item README.md package\DaraParts\README.md
+          Copy-Item run-pc.bat package\DaraParts\run-pc.bat
+      - name: Create ZIP
+        shell: pwsh
+        run: Compress-Archive -Path package\DaraParts -DestinationPath DaraParts-Windows-Server.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DaraParts-Windows-Server
+          path: DaraParts-Windows-Server.zip
+  phone-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create phone ZIP
+        run: zip -r DaraParts-Phone-Server.zip server web assets data README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DaraParts-Phone-Server
+          path: DaraParts-Phone-Server.zip
